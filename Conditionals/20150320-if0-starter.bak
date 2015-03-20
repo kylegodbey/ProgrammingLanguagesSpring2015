@@ -3,18 +3,15 @@
          rackunit)
 
 ;; DATATYPES
-(define-type WAE0
+(define-type WAE
   [num (n number?)]
   [id  (sym symbol?)]
   [binop (op symbol?)
-         (lhs WAE0?)
-         (rhs WAE0?)]
-  [if0 (test-exp WAE0?)
-       (true-exp WAE0?)
-       (false-exp WAE0?)]
+         (lhs WAE?)
+         (rhs WAE?)]
   [with  (var id?)
-         (val WAE0?)
-         (body WAE0?)])
+         (val WAE?)
+         (body WAE?)])
 
 ;; PARSING HELPERS
 (define (first-is? sexp sym)
@@ -51,10 +48,6 @@
      (binop (first sexp)
             (parse (second sexp))
             (parse (third sexp)))]
-    [(first-is? sexp 'if0)
-     (if0 (parse (second sexp))
-          (parse (third sexp))
-          (parse (fourth sexp)))]
     [(first-is? sexp 'with)
      (with (parse (first (second sexp)))
            (parse (second (second sexp)))
@@ -80,7 +73,7 @@
 
 ;; INTERPRETING FUNCTIONS
 (define (interp ast env)
-  (type-case WAE0 ast
+  (type-case WAE ast
     [num (n) n]
     [id  (sym)
          (let ([found (lookup sym env)])
@@ -90,10 +83,6 @@
     [binop (op lhs rhs)
            ((convert-to-function op) (interp lhs env)
                (interp rhs env))]
-    [if0 (test-exp true-exp false-exp)
-         (if (equal? 0 (interp test-exp env)) 
-             (interp true-exp env)
-             (interp false-exp env))]
     [with (var val body)
           (interp 
            body
@@ -115,8 +104,3 @@
 ;; INTERPRETER TESTS
 (check-equal? (interp (parse 3) (empty-env)) 3)
 (check-equal? (interp (parse '(+ 3 5)) (empty-env)) 8)
-
-;; if0 TESTS
-(check-equal? (interp (parse '(if0 0 8 42)) (empty-env)) 8)
-(check-equal? (interp (parse '(if0 (+ 1 0) 42 8)) (empty-env)) 8)
-(check-equal? (interp (parse '(if0 (- 10 (+ 5 5)) 8 42)) (empty-env)) 8)
