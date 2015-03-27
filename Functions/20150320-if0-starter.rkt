@@ -71,7 +71,7 @@
     [(number? sexp) (num sexp)]
     [(symbol? sexp) (id sexp)]
     [(first-is? sexp 'fun)
-     (fun-def (second sexp)
+     (fun-def (parse (second sexp))
           (parse (third sexp))
           (empty-env))]
     [(first-is-one-of? sexp '(+ - * /))
@@ -91,7 +91,7 @@
            (parse (second (second sexp)))
            (parse (third sexp)))]
     [else
-     (fun-app (first sexp)
+     (fun-app (parse (first sexp))
               (parse (second sexp)))]
     ))
 
@@ -217,3 +217,8 @@
 (check-equal? (interp (parse '(bif (or false (= 42 42)) 8 42)) (empty-env)) 8)
 
 (check-equal? (interp (parse '(bif (xor true true) 42 8)) (empty-env)) 8)
+
+;; fun TESTS
+(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
+  (with (x 6)
+    (add2 x)))) (empty-env)) 2)
