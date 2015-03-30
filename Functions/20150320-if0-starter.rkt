@@ -263,3 +263,8 @@
 (check-equal? (interp (parse '(with (y 2) (with (product (fun (number1 number2) (* number1 number2)))
   (with (x (product (2 2)))
     (product (x y)))))) (empty-env)) 8) 
+
+(check-equal? (interp (parse '(with (y 2) (with (for-testing (fun (number1 number2 n3 n4 n5) 
+                                                              (* (+ (- n5 y) (+ n3 number1)) (* n4 number2))))
+  (with (x (for-testing (2 0 y y 5)))
+    (with (y 8) (/ (for-testing (x (/ y 4) 1 y 10)) 18)))))) (empty-env)) 8) 
