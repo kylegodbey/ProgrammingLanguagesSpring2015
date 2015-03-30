@@ -6,11 +6,11 @@
 (define-type FWAEB0
   [num (n number?)]
   [id  (sym symbol?)]
-  [fun-def (formal id?)
+  [fun-def (formal-list (or list? id?))
            (body FWAEB0?)
            (environment env?)]
   [fun-app (name id?)
-           (actual FWAEB0?)]
+           (actual-list (or list? FWAEB0?))]
   [binop (op symbol?)
          (lhs FWAEB0?)
          (rhs FWAEB0?)]
@@ -73,7 +73,7 @@
     [(number? sexp) (num sexp)]
     [(symbol? sexp) (id sexp)]
     [(first-is? sexp 'fun)
-     (fun-def (parse (second sexp))
+     (fun-def (second sexp)
           (parse (third sexp))
           (empty-env))]
     [(first-is-one-of? sexp '(+ - * /))
@@ -97,7 +97,7 @@
            (parse (third sexp)))]
     [else
      (fun-app (parse (first sexp))
-              (parse (second sexp)))]
+              (second sexp))]
     ))
 
 ;; parse-bexp : boolean-expression -> AST
@@ -139,6 +139,13 @@
     [else 
      (lookup id (rest env))]))
 
+;; bound-extend : list-of-symbols list-of-FWAEB0s environment interp-env -> enviroment
+;; helper function to wrap up var and val into a binding
+(define (bound-extend var val env interp-env)
+  (cond
+    [(empty? var) env]
+    [else (extend-env (binding (parse (first var)) (interp (parse (first val)) interp-env)) 
+                      (bound-extend (rest var) (rest val) env interp-env))]))
 ;; INTERPRETING FUNCTIONS
 (define (interp ast env)
   (type-case FWAEB0 ast
@@ -148,13 +155,14 @@
            (if (undefined? found)
                (error 'interp "Unbound identifier: ~a" sym)
                found))]
-    [fun-def (formal body environment)
-             (fun-def formal body env)]
-    [fun-app (name actual)
+    [fun-def (formal-list body environment)
+             (fun-def formal-list body env)]
+    [fun-app (name actual-list)
              (interp (fun-def-body (lookup name env))
-                        (extend-env (binding (fun-def-formal (lookup name env))
-                                             (interp actual env))
-                                             (fun-def-environment (lookup name env))))]
+                     (bound-extend (fun-def-formal-list (lookup name env))
+                                   actual-list
+                                   (fun-def-environment (lookup name env))
+                                   env))]
     [binop (op lhs rhs)
            ((convert-to-function op) (interp lhs env)
                (interp rhs env))]
@@ -228,22 +236,30 @@
 (check-equal? (interp (parse '(bif (xor true true) 42 8)) (empty-env)) 8)
 
 ;; fun TESTS
-(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
+(check-equal? (interp (parse '(with (add2 (fun (n) (+ n 2)))
   (with (x 6)
-    (add2 x)))) (empty-env)) 8)
+    (add2 (x))))) (empty-env)) 8)
 
-(check-equal? (interp (parse '(with (sub2 (fun n (- n 2)))
+(check-equal? (interp (parse '(with (sub2 (fun (n) (- n 2)))
   (with (x 10)
-    (sub2 x)))) (empty-env)) 8)
+    (sub2 (x))))) (empty-env)) 8)
 
-(check-equal? (interp (parse '(with (double (fun n (* n 2)))
+(check-equal? (interp (parse '(with (double (fun (n) (* n 2)))
   (with (x 4)
-    (double x)))) (empty-env)) 8)
+    (double (x))))) (empty-env)) 8)
 
-(check-equal? (interp (parse '(with (square (fun n (* n n)))
+(check-equal? (interp (parse '(with (square (fun (n) (* n n)))
   (with (x (sqrt 8))
-    (square x)))) (empty-env)) (* (sqrt 8) (sqrt 8)))
+    (square (x))))) (empty-env)) (* (sqrt 8) (sqrt 8)))
 
-(check-equal? (interp (parse '(with (x 2) (with (double (fun n (* n x)))
+(check-equal? (interp (parse '(with (x 2) (with (double (fun (n) (* n x)))
   (with (x 4)
-    (double x))))) (empty-env)) 8) 
+    (double (x)))))) (empty-env)) 8) 
+
+(check-equal? (interp (parse '(with (y 2) (with (product (fun (number1 number2) (* number1 number2)))
+  (with (x 4)
+    (product (x y)))))) (empty-env)) 8) 
+
+(check-equal? (interp (parse '(with (y 2) (with (product (fun (number1 number2) (* number1 number2)))
+  (with (x (product (2 2)))
+    (product (x y)))))) (empty-env)) 8) 
