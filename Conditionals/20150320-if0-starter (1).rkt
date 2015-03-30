@@ -83,8 +83,6 @@
 (define (parse-bexp bexp)
   (cond
     [(boolean? bexp) (bool bexp)]
-    [(equal? bexp 'true) (bool true)]
-    [(equal? bexp 'false) (bool false)]
     [(first-is-one-of? bexp '(< > = <= >=))
      (binary-comparison
       (first bexp)
@@ -152,10 +150,9 @@
                         (interp lhs env)
                         (interp rhs env))]
     [binary-conjunction (op lhs rhs)
-                        (cond
-                          [(equal? op 'and) (and (interp-bexp lhs env) (interp-bexp rhs env))]
-                          [(equal? op 'or) (or (interp-bexp lhs env) (interp-bexp rhs env))]
-                          [(equal? op 'xor) (xor (interp-bexp lhs env) (interp-bexp rhs env))])]
+                        ((convert-to-function op)
+                         (interp-bexp lhs env)
+                         (interp-bexp rhs env))]
     [unary-bexp (op body)
                 ((convert-to-function op) (interp-bexp body env))]))
 
@@ -187,10 +184,8 @@
 
 (check-equal? (interp (parse '(bif (or (= 1 0) true) 8 42)) (empty-env)) 8)
 
-(check-equal? (interp (parse '(bif (not false) 8 42)) (empty-env)) 8)
+(check-equal? (interp (parse '(bif (not false)) 8 42) (empty-env)) 8)
 
 (check-equal? (interp (parse '(bif false 42 8)) (empty-env)) 8)
 
 (check-equal? (interp (parse '(bif (or false (= 42 42)) 8 42)) (empty-env)) 8)
-
-(check-equal? (interp (parse '(bif (xor true true) 42 8)) (empty-env)) 8)

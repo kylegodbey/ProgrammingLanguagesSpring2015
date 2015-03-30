@@ -14,6 +14,8 @@
   [binop (op symbol?)
          (lhs FWAEB0?)
          (rhs FWAEB0?)]
+  [unop (op symbol?)
+        (body FWAEB0?)]
   [if0 (test-exp FWAEB0?)
        (true-exp FWAEB0?)
        (false-exp FWAEB0?)]
@@ -78,6 +80,9 @@
      (binop (first sexp)
             (parse (second sexp))
             (parse (third sexp)))]
+    [(first-is-one-of? sexp '(sqrt))
+     (unop (first sexp)
+           (parse (second sexp)))]
     [(first-is? sexp 'if0)
      (if0 (parse (second sexp))
           (parse (third sexp))
@@ -129,6 +134,8 @@
     [(empty? env) (undefined)]
     [(equal? id (id-sym (binding-var (first env))))
      (binding-val (first env))]
+    [(and (not (symbol? id)) (equal? (id-sym id) (id-sym (binding-var (first env)))))
+     (binding-val (first env))]
     [else 
      (lookup id (rest env))]))
 
@@ -144,13 +151,15 @@
     [fun-def (formal body environment)
              (fun-def formal body env)]
     [fun-app (name actual)
-             (interp (parse (third (lookup name env)))
-                        (extend-env (binding (second (lookup name env))
+             (interp (fun-def-body (lookup name env))
+                        (extend-env (binding (fun-def-formal (lookup name env))
                                              (interp actual env))
-                                             (fourth (lookup name env))))]
+                                             (fun-def-environment (lookup name env))))]
     [binop (op lhs rhs)
            ((convert-to-function op) (interp lhs env)
                (interp rhs env))]
+    [unop (op body)
+          ((convert-to-function op) (interp body env))]
     [if0 (test-exp true-exp false-exp)
          (if (equal? 0 (interp test-exp env)) 
              (interp true-exp env)
@@ -221,4 +230,20 @@
 ;; fun TESTS
 (check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
   (with (x 6)
-    (add2 x)))) (empty-env)) 2)
+    (add2 x)))) (empty-env)) 8)
+
+(check-equal? (interp (parse '(with (sub2 (fun n (- n 2)))
+  (with (x 10)
+    (sub2 x)))) (empty-env)) 8)
+
+(check-equal? (interp (parse '(with (double (fun n (* n 2)))
+  (with (x 4)
+    (double x)))) (empty-env)) 8)
+
+(check-equal? (interp (parse '(with (square (fun n (* n n)))
+  (with (x (sqrt 8))
+    (square x)))) (empty-env)) (* (sqrt 8) (sqrt 8)))
+
+(check-equal? (interp (parse '(with (x 2) (with (double (fun n (* n x)))
+  (with (x 4)
+    (double x))))) (empty-env)) 8) 

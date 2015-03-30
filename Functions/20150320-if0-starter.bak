@@ -3,33 +3,42 @@
          rackunit)
 
 ;; DATATYPES
-(define-type WAEB0
+(define-type FWAEB0
   [num (n number?)]
   [id  (sym symbol?)]
+  [fun-def (formal id?)
+           (body FWAEB0?)
+           (environment env?)]
+  [fun-app (name id?)
+           (actual FWAEB0?)]
   [binop (op symbol?)
-         (lhs WAEB0?)
-         (rhs WAEB0?)]
-  [if0 (test-exp WAEB0?)
-       (true-exp WAEB0?)
-       (false-exp WAEB0?)]
+         (lhs FWAEB0?)
+         (rhs FWAEB0?)]
+  [if0 (test-exp FWAEB0?)
+       (true-exp FWAEB0?)
+       (false-exp FWAEB0?)]
   [bif (test-exp BEXP?)
-       (true-exp WAEB0?)
-       (false-exp WAEB0?)]
+       (true-exp FWAEB0?)
+       (false-exp FWAEB0?)]
   [with  (var id?)
-         (val WAEB0?)
-         (body WAEB0?)])
+         (val FWAEB0?)
+         (body FWAEB0?)])
 
 (define-type BEXP
   [bool (b boolean?)]
   [binary-comparison (op symbol?)
-                     (lhs WAEB0?)
-                     (rhs WAEB0?)]
+                     (lhs FWAEB0?)
+                     (rhs FWAEB0?)]
   [binary-conjunction (op symbol?)
                        (lhs BEXP?)
                        (rhs BEXP?)]
   [unary-bexp (op symbol?)
               (body BEXP?)])
   
+
+;; ENV? 
+(define (env? o) (list? o))
+
 ;; PARSING HELPERS
 (define (first-is? sexp sym)
   (equal? (first sexp) sym))
@@ -61,6 +70,10 @@
   (cond
     [(number? sexp) (num sexp)]
     [(symbol? sexp) (id sexp)]
+    [(first-is? sexp 'fun)
+     (fun-def (parse (second sexp))
+          (parse (third sexp))
+          (empty-env))]
     [(first-is-one-of? sexp '(+ - * /))
      (binop (first sexp)
             (parse (second sexp))
@@ -77,6 +90,9 @@
      (with (parse (first (second sexp)))
            (parse (second (second sexp)))
            (parse (third sexp)))]
+    [else
+     (fun-app (parse (first sexp))
+              (parse (second sexp)))]
     ))
 
 ;; parse-bexp : boolean-expression -> AST
@@ -118,13 +134,20 @@
 
 ;; INTERPRETING FUNCTIONS
 (define (interp ast env)
-  (type-case WAEB0 ast
+  (type-case FWAEB0 ast
     [num (n) n]
     [id  (sym)
          (let ([found (lookup sym env)])
            (if (undefined? found)
                (error 'interp "Unbound identifier: ~a" sym)
                found))]
+    [fun-def (formal body environment)
+             (fun-def formal body env)]
+    [fun-app (name actual)
+             (interp (parse (third (lookup name env)))
+                        (extend-env (binding (second (lookup name env))
+                                             (interp actual env))
+                                             (fourth (lookup name env))))]
     [binop (op lhs rhs)
            ((convert-to-function op) (interp lhs env)
                (interp rhs env))]
@@ -194,3 +217,8 @@
 (check-equal? (interp (parse '(bif (or false (= 42 42)) 8 42)) (empty-env)) 8)
 
 (check-equal? (interp (parse '(bif (xor true true) 42 8)) (empty-env)) 8)
+
+;; fun TESTS
+(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
+  (with (x 6)
+    (add2 x)))) (empty-env)) 2)
