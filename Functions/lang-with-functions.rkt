@@ -6,11 +6,11 @@
 (define-type FWAEB0
   [num (n number?)]
   [id  (sym symbol?)]
-  [fun-def (formal-list (or list? id?))
+  [fun-def (formal (or list? id?))
            (body FWAEB0?)
            (environment env?)]
   [fun-app (name id?)
-           (actual-list (or list? FWAEB0?))]
+           (actual (or list? FWAEB0?))]
   [binop (op symbol?)
          (lhs FWAEB0?)
          (rhs FWAEB0?)]
@@ -73,8 +73,8 @@
     [(number? sexp) (num sexp)]
     [(symbol? sexp) (id sexp)]
     [(first-is? sexp 'fun)
-     (fun-def (second sexp)
-          (parse (third sexp))
+     (fun-def (filter symbol? (rest sexp))
+          (parse (last sexp))
           (empty-env))]
     [(first-is-one-of? sexp '(+ - * /))
      (binop (first sexp)
@@ -97,7 +97,7 @@
            (parse (third sexp)))]
     [else
      (fun-app (parse (first sexp))
-              (second sexp))]
+              (rest sexp))]
     ))
 
 ;; parse-bexp : boolean-expression -> AST
@@ -180,10 +180,10 @@
                found))]
     [fun-def (formal-list body environment)
              (fun-def formal-list body env)]
-    [fun-app (name actual-list)
+    [fun-app (name actuals)
              (interp (fun-def-body (lookup name env))
-                     (bound-extend (fun-def-formal-list (lookup name env))
-                                   actual-list
+                     (bound-extend (fun-def-formal (lookup name env))
+                                   actuals
                                    (fun-def-environment (lookup name env))
                                    env))]
     [binop (op lhs rhs)
@@ -259,35 +259,35 @@
 (check-equal? (interp (parse '(bif (xor true true) 42 8)) (empty-env)) 8)
 
 ;; fun TESTS
-(check-equal? (interp (parse '(with (add2 (fun (n) (+ n 2)))
+(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
   (with (x 6)
-    (add2 (x))))) (empty-env)) 8)
+    (add2 x)))) (empty-env)) 8)
 
-(check-equal? (interp (parse '(with (sub2 (fun (n) (- n 2)))
+(check-equal? (interp (parse '(with (sub2 (fun n (- n 2)))
   (with (x 10)
-    (sub2 (x))))) (empty-env)) 8)
+    (sub2 x)))) (empty-env)) 8)
 
-(check-equal? (interp (parse '(with (double (fun (n) (* n 2)))
+(check-equal? (interp (parse '(with (double (fun n (* n 2)))
   (with (x 4)
-    (double (x))))) (empty-env)) 8)
+    (double x)))) (empty-env)) 8)
 
-(check-equal? (interp (parse '(with (square (fun (n) (* n n)))
+(check-equal? (interp (parse '(with (square (fun n (* n n)))
   (with (x (sqrt 8))
-    (square (x))))) (empty-env)) (* (sqrt 8) (sqrt 8)))
+    (square x)))) (empty-env)) (* (sqrt 8) (sqrt 8)))
 
-(check-equal? (interp (parse '(with (x 2) (with (double (fun (n) (* n x)))
+(check-equal? (interp (parse '(with (x 2) (with (double (fun n (* n x)))
   (with (x 4)
-    (double (x)))))) (empty-env)) 8) 
+    (double x))))) (empty-env)) 8) 
 
-(check-equal? (interp (parse '(with (y 2) (with (product (fun (number1 number2) (* number1 number2)))
+(check-equal? (interp (parse '(with (y 2) (with (product (fun number1 number2 (* number1 number2)))
   (with (x 4)
-    (product (x y)))))) (empty-env)) 8) 
+    (product x y))))) (empty-env)) 8) 
 
-(check-equal? (interp (parse '(with (y 2) (with (product (fun (number1 number2) (* number1 number2)))
-  (with (x (product (2 2)))
-    (product (x y)))))) (empty-env)) 8) 
+(check-equal? (interp (parse '(with (y 2) (with (product (fun number1 number2 (* number1 number2)))
+  (with (x (product 2 2))
+    (product x y))))) (empty-env)) 8) 
 
-(check-equal? (interp (parse '(with (y 2) (with (for-testing (fun (number1 number2 n3 n4 n5) 
+(check-equal? (interp (parse '(with (y 2) (with (for-testing (fun number1 number2 n3 n4 n5 
                                                               (* (+ (- n5 y) (+ n3 number1)) (* n4 number2))))
-  (with (x (for-testing (2 0 y y 5)))
-    (with (y 8) (/ (for-testing (x (/ y 4) 1 y 10)) 18)))))) (empty-env)) 8) 
+  (with (x (for-testing 2 0 y y 5))
+    (with (y 8) (/ (for-testing x (/ y 4) 1 y 10) 18)))))) (empty-env)) 8) 
