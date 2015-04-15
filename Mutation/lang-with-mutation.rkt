@@ -160,6 +160,15 @@
 
 
 
+;; mutate : var val environment interp-env -> environment
+(define (mutate var val env interp-env)
+  (cond
+    [(empty? env) (extend-env (binding var (interp val interp-env)) interp-env)]
+    [(equal? var (var-sym (binding-var (first env))))
+     (set! (binding-val (first env)) (interp val interp-env))]
+    [(and (not (symbol? id)) (equal? (var-sym var) (var-sym (binding-var (first env)))))
+     (binding-val (first env))]
+
 ;; Interp the sequence and deliver the final eval to the final body
 ;; interp-seq : list-of-FWAEB0s environment -> environment
 (define (interp-seq seq env)
