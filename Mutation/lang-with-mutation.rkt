@@ -28,7 +28,7 @@
          (body FWAEB0?)])
 
 (define-type STATEMENT
-  [set (var id?)
+  [SET (var id?)
        (body FWAEB0?)])
 
 (define-type BEXP
@@ -167,7 +167,7 @@
     [(equal? var (var-sym (binding-var (first env))))
      (set! (binding-val (first env)) (interp val interp-env))]
     [(and (not (symbol? id)) (equal? (var-sym var) (var-sym (binding-var (first env)))))
-     (binding-val (first env))]
+     (set! (binding-val (first env)) (interp val interp-env))]))
 
 ;; Interp the sequence and deliver the final eval to the final body
 ;; interp-seq : list-of-FWAEB0s environment -> environment
@@ -175,7 +175,7 @@
   (cond
     [(empty? (first (rest seq))) (interp (first seq) env)]
     [else (begin
-            (interp
+            (interp 1 env))]))
 
 ;                                                              
 ;                                                              
@@ -208,7 +208,7 @@
                (error 'interp "Unbound identifier: ~a" sym)
                found))]
     [sequence (seq)
-              (interp (last seq)
+              (interp (last seq) env)]
     [fun-def (formal-list body environment)
              (fun-def formal-list body env)]
     [fun-app (name actuals)
