@@ -334,3 +334,7 @@
 (check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
   (with (x 6)
     (add2 (sequence (set z 3) (set x 3) (+ z x)))))) (empty-env)) 8)
+
+(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
+  (with (x 6)
+    (add2 (sequence (set z 3) (set x (- x 3)) (+ z x)))))) (empty-env)) 8)
