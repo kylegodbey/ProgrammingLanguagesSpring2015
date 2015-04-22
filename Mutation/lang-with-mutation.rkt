@@ -6,7 +6,9 @@
 (define-type FWAEB0
   [num (n number?)]
   [id  (sym symbol?)]
+  [str (strang string?)]
   [cquence (seq list?)]
+  [cquence-env (seq list?)]
   [fun-def (formal (or list? id?))
            (body FWAEB0?)
            (environment env?)]
@@ -77,13 +79,16 @@
   (cond
     [(number? sexp) (num sexp)]
     [(symbol? sexp) (id sexp)]
+    [(string? sexp) (str sexp)]
     [(first-is? sexp 'sequence)
      (cquence (map parse (rest sexp)))]
+    [(first-is? sexp 'sequence-env)
+     (cquence-env (map parse (rest sexp)))]
     [(first-is? sexp 'fun)
      (fun-def (filter symbol? (rest sexp))
           (parse (last sexp))
           (empty-env))]
-    [(first-is-one-of? sexp '(+ - * /))
+    [(first-is-one-of? sexp '(+ - * / modulo))
      (binop (first sexp)
             (parse (second sexp))
             (parse (third sexp)))]
@@ -175,7 +180,18 @@
 (define (interp-seq seq env)
   (cond
     [(empty? (rest seq)) (interp (first seq) env)]
+    [(not (SET? (first seq))) (interp-seq (rest seq) env)]
     [else (interp-seq (rest seq) (mutate (binding (SET-var (first seq))
+                                                  (interp (SET-body (first seq)) env)) 
+                                         env (empty-env)))]))
+
+(define (interp-seq-env seq env)
+  (cond
+    [(empty? (rest seq)) (print (interp (first seq) env))]
+    [(not (SET? (first seq))) (begin (print (interp (first seq) env))
+                                     (newline)
+                                     (interp-seq-env (rest seq) env))]
+    [else (interp-seq-env (rest seq) (mutate (binding (SET-var (first seq))
                                                   (interp (SET-body (first seq)) env)) 
                                          env (empty-env)))]))
 
@@ -209,8 +225,11 @@
            (if (undefined? found)
                (error 'interp "Unbound identifier: ~a" sym)
                found))]
+    [str (strang) strang]
     [cquence (seq)
               (interp-seq seq env)]
+    [cquence-env (seq)
+              (interp-seq-env seq env)]
     [fun-def (formal-list body environment)
              (fun-def formal-list body env)]
     [fun-app (name actuals)
@@ -338,3 +357,52 @@
 (check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
   (with (x 6)
     (add2 (sequence (set z 3) (set x (- x 3)) (+ z x)))))) (empty-env)) 8)
+
+
+;                                                                                  
+;                                                                                  
+;                ;                                                                 
+;    ;;;;;;;     ;                          ;;;;;;;                                
+;    ;                                      ;    ;;;                               
+;    ;                                      ;     ;;                               
+;    ;         ;;;       ;;;;;;    ;;;;;;   ;     ;;  ;      ;   ;;;;;;    ;;;;;;  
+;    ;           ;           ;;        ;;   ;     ;;  ;      ;       ;;        ;;  
+;    ;;;;;;;     ;           ;         ;    ;;;;;;    ;      ;       ;         ;   
+;    ;           ;          ;         ;     ;    ;;   ;      ;      ;         ;    
+;    ;           ;         ;;        ;;     ;     ;;  ;      ;     ;;        ;;    
+;    ;           ;         ;         ;      ;     ;;  ;      ;     ;         ;     
+;    ;           ;        ;         ;       ;     ;;  ;;    ;;    ;         ;      
+;    ;           ;       ;;        ;;       ;    ;;   ;;   ;;;   ;;        ;;      
+;    ;        ;;;;;;;    ;;;;;;    ;;;;;;   ;;;;;;     ;;;;; ;   ;;;;;;    ;;;;;;  
+;                                                                                  
+;                                                                                  
+;                                                                                  
+;                                                                                  
+
+(interp (parse
+ 
+'(sequence-env
+  
+   
+  (set FizzBuzz 
+   (fun x 
+        (bif (and 
+              (= (modulo x 3) 0)
+              (= (modulo x 5) 0))
+             "FizzBuzz"
+             (if0 (modulo x 3)
+                  "Fizz"
+                  (if0 (modulo x 5)
+                       "Buzz"
+                       x)))))
+  
+  
+  (FizzBuzz 15)
+  (FizzBuzz 5)
+  (FizzBuzz 15)
+  (FizzBuzz 2)
+  (FizzBuzz 4)
+  (+ 3 5)
+       
+)) (empty-env))
+

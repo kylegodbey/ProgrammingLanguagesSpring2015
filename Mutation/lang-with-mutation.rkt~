@@ -6,7 +6,7 @@
 (define-type FWAEB0
   [num (n number?)]
   [id  (sym symbol?)]
-  [sequence (seq list?)]
+  [cquence (seq list?)]
   [fun-def (formal (or list? id?))
            (body FWAEB0?)
            (environment env?)]
@@ -78,7 +78,7 @@
     [(number? sexp) (num sexp)]
     [(symbol? sexp) (id sexp)]
     [(first-is? sexp 'sequence)
-     (sequence (map parse (rest sexp)))]
+     (cquence (map parse (rest sexp)))]
     [(first-is? sexp 'fun)
      (fun-def (filter symbol? (rest sexp))
           (parse (last sexp))
@@ -103,7 +103,7 @@
            (parse (second (second sexp)))
            (parse (third sexp)))]
     [(first-is? sexp 'set)
-     (set (parse (second sexp))
+     (SET (parse (second sexp))
           (parse (third sexp)))]
     [else
      (fun-app (parse (first sexp))
@@ -159,23 +159,25 @@
                       (bound-extend (rest var) (rest val) env interp-env))]))
 
 
-
-;; mutate : var val environment interp-env -> environment
-(define (mutate var val env interp-env)
+;; to build a new environment after mutation or introduction with set
+;; mutate : set-binding environment new-env -> environment
+(define (mutate set-binding env new-env)
   (cond
-    [(empty? env) (extend-env (binding var (interp val interp-env)) interp-env)]
-    [(equal? var (var-sym (binding-var (first env))))
-     (set! (binding-val (first env)) (interp val interp-env))]
-    [(and (not (symbol? id)) (equal? (var-sym var) (var-sym (binding-var (first env)))))
-     (set! (binding-val (first env)) (interp val interp-env))]))
+    [(empty? env) (extend-env set-binding new-env)]
+    [(equal? (binding-var set-binding) (binding-var (first env)))
+     (extend-env set-binding new-env)]
+    [(and (not (symbol? (binding-var set-binding))) (equal? (binding-var set-binding) (binding-var (first env))))
+     (extend-env set-binding new-env)]
+    [else (mutate set-binding (rest env) (extend-env (first env) new-env))]))
 
 ;; Interp the sequence and deliver the final eval to the final body
 ;; interp-seq : list-of-FWAEB0s environment -> environment
 (define (interp-seq seq env)
   (cond
-    [(empty? (first (rest seq))) (interp (first seq) env)]
-    [else (begin
-            (interp 1 env))]))
+    [(empty? (rest seq)) (interp (first seq) env)]
+    [else (interp-seq (rest seq) (mutate (binding (SET-var (first seq))
+                                                  (interp (SET-body (first seq)) env)) 
+                                         env (empty-env)))]))
 
 ;                                                              
 ;                                                              
@@ -207,8 +209,8 @@
            (if (undefined? found)
                (error 'interp "Unbound identifier: ~a" sym)
                found))]
-    [sequence (seq)
-              (interp (last seq) env)]
+    [cquence (seq)
+              (interp-seq seq env)]
     [fun-def (formal-list body environment)
              (fun-def formal-list body env)]
     [fun-app (name actuals)
@@ -322,3 +324,17 @@
                                                               (* (+ (- n5 y) (+ n3 number1)) (* n4 number2))))
   (with (x (for-testing 2 0 y y 5))
     (with (y 8) (/ (for-testing x (/ y 4) 1 y 10) 18)))))) (empty-env)) 8) 
+
+;; to test sequence and set
+
+
+(check-equal? (interp (parse '(sequence (set x 5) (set y 3) (+ x y))) (empty-env))
+              8)
+
+(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
+  (with (x 6)
+    (add2 (sequence (set z 3) (set x 3) (+ z x)))))) (empty-env)) 8)
+
+(check-equal? (interp (parse '(with (add2 (fun n (+ n 2)))
+  (with (x 6)
+    (add2 (sequence (set z 3) (set x (- x 3)) (+ z x)))))) (empty-env)) 8)
